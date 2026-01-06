@@ -40,40 +40,61 @@ fi
 info "Installing system dependencies..."
 sudo apt update
 sudo apt install -y \
-    build-essential \
-    git \
-    curl \
-    unzip \
-    tar \
-    wget \
-    gcc \
-    g++ \
-    clang \
-    clangd \
-    python3 \
-    python3-pip \
-    ripgrep \
-    fd-find \
-    nodejs \
-    npm \
-    tmux \
-    zsh
+  build-essential \
+  git \
+  curl \
+  unzip \
+  tar \
+  wget \
+  gcc \
+  g++ \
+  clang \
+  clangd \
+  python3 \
+  python3-pip \
+  ripgrep \
+  fd-find \
+  nodejs \
+  npm \
+  xclip \
+  tmux \
+  zsh
 
 # 2. Neovim
-info "Installing Neovim..."
-if ! command -v nvim &> /dev/null; then
-    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
-    sudo rm -rf /opt/nvim
-    sudo tar -C /opt -xzf nvim-linux64.tar.gz
-    rm nvim-linux64.tar.gz
+info "Installing Neovim v0.11.5..."
+
+# Cleanup
+sudo apt remove neovim -y 2>/dev/null
+sudo rm -rf /opt/nvim-linux64 /opt/nvim
+sudo rm -f /usr/local/bin/nvim
+
+# Download AppImage
+cd /tmp
+if wget -q --show-progress -O nvim.appimage \
+  https://github.com/neovim/neovim/releases/download/v0.11.5/nvim-linux-x86_64.appimage; then
     
-    # Add to PATH
-    if ! grep -q "/opt/nvim-linux64/bin" ~/.bashrc; then
-        echo 'export PATH="$PATH:/opt/nvim-linux64/bin"' >> ~/.bashrc
+    chmod u+x nvim.appimage
+    
+    # Test
+    if ./nvim.appimage --version >/dev/null 2>&1; then
+        sudo mv nvim.appimage /usr/local/bin/nvim
+        info "✓ Neovim installed: $(nvim --version | head -1)"
+    else
+        warn "AppImage won't run, extracting..."
+        ./nvim.appimage --appimage-extract >/dev/null
+        if [ -d squashfs-root ]; then
+            sudo mv squashfs-root /opt/nvim
+            sudo ln -s /opt/nvim/usr/bin/nvim /usr/local/bin/nvim
+            rm nvim.appimage
+            info "✓ Neovim extracted and installed"
+        else
+            error "Extraction failed"
+            sudo apt update && sudo apt install -y neovim
+        fi
     fi
-    export PATH="$PATH:/opt/nvim-linux64/bin"
 else
-    info "Neovim already installed"
+    error "Download failed"
+    sudo apt update && sudo apt install -y neovim
 fi
 
 # 3. tmux config
